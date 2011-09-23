@@ -6,7 +6,6 @@ import com.amazonaws.services.sns.model.PublishRequest;
 import hudson.Launcher;
 import hudson.Extension;
 import hudson.Util;
-import hudson.util.FormValidation;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
@@ -19,10 +18,6 @@ import hudson.tasks.BuildStepMonitor;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.QueryParameter;
-
-import javax.servlet.ServletException;
-import java.io.IOException;
 
 public class AmazonSNSNotifier extends Notifier {
 

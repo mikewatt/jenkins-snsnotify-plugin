@@ -21,6 +21,12 @@
         </developer>
     </developers>
 
+    <scm>
+        <connection>scm:git:ssh://github.com/jenkinsci/snsnotify-plugin.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/jenkinsci/snsnotify-plugin.git</developerConnection>
+        <url>https://github.com/jenkinsci/snsnotify-plugin</url>
+    </scm>
+
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>

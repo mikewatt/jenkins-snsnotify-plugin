@@ -28,6 +28,10 @@ public class AmazonSNSNotifier extends Notifier {
         this.projectTopicArn = projectTopicArn;
     }
 
+    public String getProjectTopicArn() {
+        return projectTopicArn;
+    }
+
     @Override
     public BuildStepMonitor getRequiredMonitorService() {
         return BuildStepMonitor.NONE;

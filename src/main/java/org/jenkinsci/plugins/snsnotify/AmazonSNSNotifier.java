@@ -59,6 +59,13 @@ public class AmazonSNSNotifier extends Notifier {
                 return true;
             }
 
+            String snsApiEndpoint = getSNSApiEndpoint(publishTopic);
+            if (isEmpty(snsApiEndpoint)) {
+                listener.error(
+                        "Could not determine SNS API Endpoint from topic ARN: " + publishTopic);
+                return true;
+            }
+
             String subject = truncate(
                     String.format("Build %s: %s", 
                         build.getResult().toString(), build.getFullDisplayName()), 100);
@@ -69,6 +76,8 @@ public class AmazonSNSNotifier extends Notifier {
 
             AmazonSNSClient snsClient = new AmazonSNSClient(
                     new BasicAWSCredentials(awsAccessKey, awsSecretKey));
+            snsClient.setEndpoint(snsApiEndpoint);
+
             try {
                 PublishRequest pubReq = new PublishRequest(publishTopic, message, subject);
                 snsClient.publish(pubReq);
@@ -97,6 +106,29 @@ public class AmazonSNSNotifier extends Notifier {
 
     private boolean isEmpty(String s) {
         return s == null || s.trim().length() == 0;
+    }
+
+    /**
+     * Determine the SNS API endpoint to make API calls to, based on the region
+     * included in the topic ARN. 
+     */
+    private String getSNSApiEndpoint(String topicArn) {
+
+        // This is probably not a recommended way to pick the API endpoint, but
+        // it seems to be a reasonably safe assumption, and avoids extra 
+        // configuration variables.
+
+        if (!topicArn.startsWith("arn:aws:sns:")) {
+            return null;
+        }
+
+        String[] arnParts = topicArn.split(":");
+        if (arnParts.length < 5) {
+            return null;
+        }
+
+        String region = arnParts[3];
+        return "sns." + region + ".amazonaws.com";
     }
 
     @Extension

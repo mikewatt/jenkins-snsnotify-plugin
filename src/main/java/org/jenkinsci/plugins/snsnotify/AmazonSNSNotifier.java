@@ -40,53 +40,50 @@ public class AmazonSNSNotifier extends Notifier {
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
 
-        if (build.getResult() == Result.FAILURE || build.getResult() == Result.UNSTABLE) {
+        String awsAccessKey = getDescriptor().getAwsAccessKey();
+        String awsSecretKey = getDescriptor().getAwsSecretKey();
+        String publishTopic = isEmpty(projectTopicArn) ? 
+            getDescriptor().getDefaultTopicArn() : projectTopicArn;
 
-            String awsAccessKey = getDescriptor().getAwsAccessKey();
-            String awsSecretKey = getDescriptor().getAwsSecretKey();
-            String publishTopic = isEmpty(projectTopicArn) ? 
-                getDescriptor().getDefaultTopicArn() : projectTopicArn;
+        if (isEmpty(publishTopic)) {
+            listener.error(
+                    "No global or project topic ARN sent; cannot send SNS notification");
+            return true;
+        }
 
-            if (isEmpty(publishTopic)) {
-                listener.error(
-                        "No global or project topic ARN sent; cannot send SNS notification");
-                return true;
-            }
+        if (isEmpty(awsAccessKey) || isEmpty(awsSecretKey)) {
+            listener.error(
+                    "AWS credentials not configured; cannot send SNS notification");
+            return true;
+        }
 
-            if (isEmpty(awsAccessKey) || isEmpty(awsSecretKey)) {
-                listener.error(
-                        "AWS credentials not configured; cannot send SNS notification");
-                return true;
-            }
+        String snsApiEndpoint = getSNSApiEndpoint(publishTopic);
+        if (isEmpty(snsApiEndpoint)) {
+            listener.error(
+                    "Could not determine SNS API Endpoint from topic ARN: " + publishTopic);
+            return true;
+        }
 
-            String snsApiEndpoint = getSNSApiEndpoint(publishTopic);
-            if (isEmpty(snsApiEndpoint)) {
-                listener.error(
-                        "Could not determine SNS API Endpoint from topic ARN: " + publishTopic);
-                return true;
-            }
+        String subject = truncate(
+                String.format("Build %s: %s", 
+                    build.getResult().toString(), build.getFullDisplayName()), 100);
 
-            String subject = truncate(
-                    String.format("Build %s: %s", 
-                        build.getResult().toString(), build.getFullDisplayName()), 100);
+        String message = Hudson.getInstance().getRootUrl() == null ?
+            Util.encode("(Global build server url not set)/" + build.getUrl()) :
+            Util.encode(Hudson.getInstance().getRootUrl() + build.getUrl());
 
-            String message = Hudson.getInstance().getRootUrl() == null ?
-                Util.encode("(Global build server url not set)/" + build.getUrl()) :
-                Util.encode(Hudson.getInstance().getRootUrl() + build.getUrl());
+        AmazonSNSClient snsClient = new AmazonSNSClient(
+                new BasicAWSCredentials(awsAccessKey, awsSecretKey));
+        snsClient.setEndpoint(snsApiEndpoint);
 
-            AmazonSNSClient snsClient = new AmazonSNSClient(
-                    new BasicAWSCredentials(awsAccessKey, awsSecretKey));
-            snsClient.setEndpoint(snsApiEndpoint);
-
-            try {
-                PublishRequest pubReq = new PublishRequest(publishTopic, message, subject);
-                snsClient.publish(pubReq);
-            } catch (Exception e) {
-                listener.error(
-                        "Failed to send SNS notification: " + e.getMessage());
-            } finally {
-                snsClient.shutdown();
-            }
+        try {
+            PublishRequest pubReq = new PublishRequest(publishTopic, message, subject);
+            snsClient.publish(pubReq);
+        } catch (Exception e) {
+            listener.error(
+                    "Failed to send SNS notification: " + e.getMessage());
+        } finally {
+            snsClient.shutdown();
         }
 
         return true;

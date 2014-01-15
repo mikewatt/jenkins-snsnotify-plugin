@@ -118,12 +118,8 @@ public class AmazonSNSNotifier extends Notifier {
         // it seems to be a reasonably safe assumption, and avoids extra 
         // configuration variables.
 
-        if (!topicArn.startsWith("arn:aws:sns:")) {
-            return null;
-        }
-
         String[] arnParts = topicArn.split(":");
-        if (arnParts.length < 5) {
+        if (arnParts.length < 5 || !arnParts[0].equals("arn") || !arnParts[2].equals("sns")) {
             return null;
         }
 

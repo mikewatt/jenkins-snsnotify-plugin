@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>1.553</version>
+        <version>1.565.1</version>
     </parent>
 
     <artifactId>snsnotify</artifactId>
@@ -19,6 +19,14 @@
         <developer>
             <id>mikewatt</id>
             <name>Michael Watt</name>
+        </developer>
+        <developer>
+            <id>jkelabora</id>
+            <name>Julian Kelabora</name>
+        </developer>
+        <developer>
+            <id>nikos</id>
+            <name>Niko Schmuck</name>
         </developer>
     </developers>
 

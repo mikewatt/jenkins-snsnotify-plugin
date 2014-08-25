@@ -9,9 +9,9 @@
     </parent>
 
     <artifactId>snsnotify</artifactId>
-    <version>1.7-SNAPSHOT</version>
+    <version>1.8-SNAPSHOT</version>
     <packaging>hpi</packaging>
-    <name>Amazon SNS Build Notifier (modified)</name>
+    <name>Amazon SNS Build Notifier</name>
     <description>Publish build notifications to an AWS SNS Topic</description>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/Amazon+SNS+Notifier</url>
 
@@ -19,6 +19,14 @@
         <developer>
             <id>mikewatt</id>
             <name>Michael Watt</name>
+        </developer>
+        <developer>
+            <id>jkelabora</id>
+            <name>Julian Kelabora</name>
+        </developer>
+        <developer>
+            <id>nikos</id>
+            <name>Niko Schmuck</name>
         </developer>
     </developers>
 

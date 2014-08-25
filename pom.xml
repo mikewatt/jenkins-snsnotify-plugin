@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>snsnotify</artifactId>
-    <version>1.7-SNAPSHOT</version>
+    <version>1.7</version>
     <packaging>hpi</packaging>
     <name>Amazon SNS Build Notifier</name>
     <description>Publish build notifications to an AWS SNS Topic</description>

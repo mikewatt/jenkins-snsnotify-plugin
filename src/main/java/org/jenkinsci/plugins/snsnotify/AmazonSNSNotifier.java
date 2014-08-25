@@ -3,42 +3,59 @@ package org.jenkinsci.plugins.snsnotify;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.PublishRequest;
-import hudson.Launcher;
+import hudson.EnvVars;
 import hudson.Extension;
+import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Hudson;
-import hudson.model.Result;
-import hudson.tasks.Notifier;
-import hudson.tasks.Publisher;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
+import hudson.tasks.Notifier;
+import hudson.tasks.Publisher;
 import net.sf.json.JSONObject;
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
+import java.io.IOException;
+import java.util.logging.Logger;
+
 public class AmazonSNSNotifier extends Notifier {
 
+    private final static Logger LOG = Logger.getLogger(AmazonSNSNotifier.class.getName());
+
     private final String projectTopicArn;
+    private final String subjectTemplate;
+    private final String messageTemplate;
 
     @DataBoundConstructor
-    public AmazonSNSNotifier(String projectTopicArn) {
+    public AmazonSNSNotifier(String projectTopicArn, String subjectTemplate, String messageTemplate) {
         this.projectTopicArn = projectTopicArn;
+        this.subjectTemplate = subjectTemplate;
+        this.messageTemplate = messageTemplate;
     }
 
     public String getProjectTopicArn() {
         return projectTopicArn;
     }
 
-    @Override
+    public String getSubjectTemplate() {
+        return subjectTemplate;
+    }
+
+    public String getMessageTemplate() {
+        return messageTemplate;
+    }
+
     public BuildStepMonitor getRequiredMonitorService() {
         return BuildStepMonitor.NONE;
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
 
         String awsAccessKey = getDescriptor().getAwsAccessKey();
         String awsSecretKey = getDescriptor().getAwsSecretKey();
@@ -64,21 +81,37 @@ public class AmazonSNSNotifier extends Notifier {
             return true;
         }
 
-        String subject = truncate(
-                String.format("Build %s: %s", 
-                    build.getResult().toString(), build.getFullDisplayName()), 100);
+        // ~~ prepare subject (incl. variable replacement)
+        String subject;
+        if (StringUtils.isEmpty(subjectTemplate)) {
+            subject = truncate(
+                    String.format("Build %s: %s",
+                            build.getResult().toString(), build.getFullDisplayName()), 100);
+        } else {
+            subject = replaceVariables(build, listener, subjectTemplate);
+        }
 
-        String message = Hudson.getInstance().getRootUrl() == null ?
-            Util.encode("(Global build server url not set)/" + build.getUrl()) :
-            Util.encode(Hudson.getInstance().getRootUrl() + build.getUrl());
+        // ~~ prepare message (incl. variable replacement)
+        String message;
+        if (StringUtils.isEmpty(messageTemplate)) {
+            message = Hudson.getInstance().getRootUrl() == null ?
+                    Util.encode("(Global build server url not set)/" + build.getUrl()) :
+                    Util.encode(Hudson.getInstance().getRootUrl() + build.getUrl());
+        } else {
+            message = replaceVariables(build, listener, messageTemplate);
+        }
 
+        LOG.info("Setup SNS client '" + snsApiEndpoint + "' ...");
         AmazonSNSClient snsClient = new AmazonSNSClient(
                 new BasicAWSCredentials(awsAccessKey, awsSecretKey));
         snsClient.setEndpoint(snsApiEndpoint);
 
         try {
+            String summary = String.format("subject=%s message=%s topic=%s", subject, message, publishTopic);
+            LOG.info("Publish SNS notification: " + summary + " ...");
             PublishRequest pubReq = new PublishRequest(publishTopic, message, subject);
             snsClient.publish(pubReq);
+            listener.getLogger().println("Published SNS notification: " + summary);
         } catch (Exception e) {
             listener.error(
                     "Failed to send SNS notification: " + e.getMessage());
@@ -103,6 +136,16 @@ public class AmazonSNSNotifier extends Notifier {
 
     private boolean isEmpty(String s) {
         return s == null || s.trim().length() == 0;
+    }
+
+    /**
+     * Replaces all build and environment variables given by the String tmpl.
+     */
+    private String replaceVariables(AbstractBuild build, BuildListener listener, String tmpl)
+            throws IOException, InterruptedException {
+        EnvVars envVars = build.getEnvironment(listener);
+        String result = Util.replaceMacro(tmpl, build.getBuildVariableResolver());
+        return Util.replaceMacro(result, envVars);
     }
 
     /**

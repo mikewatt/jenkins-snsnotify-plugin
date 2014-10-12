@@ -25,5 +25,13 @@
             <f:textbox name="snsnotify.defaultTopicArn" />
         </f:entry>
 
+        <f:entry
+            title="Send notification also on start of build?"
+            help="/plugin/snsnotify/help-defaultSendNotificationOnStart.html"
+            field="defaultSendNotificationOnStart">
+
+            <f:booleanRadio name="snsnotify.defaultSendNotificationOnStart" />
+        </f:entry>
+
     </f:section>
 </j:jelly>

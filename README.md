@@ -22,5 +22,12 @@ Now, login to AWS and do the following:
 
 Finally, back to Jenkins...
 
-1. Manage Jenkins > Configure Jenkins to use AWS creds and newly created Topic ARN
-2. As part of your job: add post-build step for SNS notification, optionally configure subject and message (you can make use of build and environment variables, which do get substituted), resp. override Topic ARN (if you do not want to stick with globally configured one).
+1. Manage Jenkins > Configure Jenkins to use AWS creds and newly created Topic ARN.
+   You can also specify the default bevaiour in case you want to send out also an 
+   SNS notification when the build is started (off by default). 
+2. As part of your job: add post-build step for SNS notification, optionally configure 
+   subject and message (you can make use of build and environment variables, which do 
+   get substituted), resp. override Topic ARN (if you do not want to stick with globally 
+   configured one).
+   
+

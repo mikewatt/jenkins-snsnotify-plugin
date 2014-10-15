@@ -9,6 +9,7 @@ import hudson.Launcher;
 import hudson.Util;
 import hudson.model.*;
 import hudson.model.BuildListener;
+import hudson.model.Run.Artifact;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
@@ -20,6 +21,8 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 public class AmazonSNSNotifier extends Notifier {
@@ -174,12 +177,23 @@ public class AmazonSNSNotifier extends Notifier {
         try {
             EnvVars envVars = build.getEnvironment(listener);
             envVars.put("BUILD_PHASE", phase.name());
+            envVars.put("BUILD_ARTIFACT_PATHS", artifactPaths(build.getArtifacts()));
             String result = Util.replaceMacro(tmpl, build.getBuildVariableResolver());
             return Util.replaceMacro(result, envVars);
         } catch (Exception e) {
             LOG.warning("Unable to get environment while trying to replace variables on " + tmpl);
             return tmpl;
         }
+    }
+
+    /**
+     * Concatenate build artifact paths into a single new-line separated string.
+     */
+    private String artifactPaths(List<Artifact> artifacts) {
+        List<String> paths = new ArrayList<String>();
+        for (Artifact artifact: artifacts)
+            paths.add(artifact.getDisplayPath());
+        return StringUtils.join(paths, "\n");
     }
 
     /**

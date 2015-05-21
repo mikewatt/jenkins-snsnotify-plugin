@@ -8,7 +8,7 @@
     <f:textbox />
   </f:entry>
 
-  <f:entry title="Message (default: {BUILD_URL})" field="messageTemplate">
+  <f:entry title="Message (overrides global default)" field="messageTemplate">
     <f:textbox />
   </f:entry>
 

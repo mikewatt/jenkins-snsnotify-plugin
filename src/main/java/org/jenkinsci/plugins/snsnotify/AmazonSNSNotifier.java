@@ -131,14 +131,8 @@ public class AmazonSNSNotifier extends Notifier {
         }
 
         // ~~ prepare message (incl. variable replacement)
-        String message;
-        if (StringUtils.isEmpty(messageTemplate)) {
-            message = Hudson.getInstance().getRootUrl() == null ?
-                    Util.encode("(Global build server url not set)/" + build.getUrl()) :
-                    Util.encode(Hudson.getInstance().getRootUrl() + build.getUrl());
-        } else {
-            message = replaceVariables(build, listener, phase, messageTemplate);
-        }
+        String message = replaceVariables(build, listener, phase, 
+                isEmpty(messageTemplate) ? getDescriptor().getDefaultMessageTemplate() : messageTemplate);
 
         LOG.info("Setup SNS client '" + snsApiEndpoint + "' ...");
         AmazonSNSClient snsClient = new AmazonSNSClient(
@@ -226,6 +220,7 @@ public class AmazonSNSNotifier extends Notifier {
         private String awsAccessKey;
         private String awsSecretKey;
         private String defaultTopicArn;
+        private String defaultMessageTemplate;
         private boolean defaultSendNotificationOnStart;
 
         public DescriptorImpl() {
@@ -248,6 +243,7 @@ public class AmazonSNSNotifier extends Notifier {
             awsAccessKey = formData.getString("awsAccessKey");
             awsSecretKey = formData.getString("awsSecretKey");
             defaultTopicArn = formData.getString("defaultTopicArn");
+            defaultMessageTemplate = formData.getString("defaultMessageTemplate");
             defaultSendNotificationOnStart = formData.getBoolean("defaultSendNotificationOnStart");
 
             save();
@@ -266,6 +262,10 @@ public class AmazonSNSNotifier extends Notifier {
             return defaultTopicArn;
         }
 
+        public String getDefaultMessageTemplate() {
+            return StringUtils.isEmpty(defaultMessageTemplate) ? "${BUILD_URL}" : defaultMessageTemplate;
+        }
+
         public boolean isDefaultSendNotificationOnStart() {
             return defaultSendNotificationOnStart;
         }
@@ -280,6 +280,10 @@ public class AmazonSNSNotifier extends Notifier {
 
         public void setDefaultTopicArn(String defaultTopicArn) {
             this.defaultTopicArn = defaultTopicArn;
+        }
+
+        public void setDefaultMessageTemplate(String defaultMessageTemplate) {
+            this.defaultMessageTemplate = defaultMessageTemplate;
         }
 
         public void setDefaultSendNotificationOnStart(boolean defaultSendNotificationOnStart) {

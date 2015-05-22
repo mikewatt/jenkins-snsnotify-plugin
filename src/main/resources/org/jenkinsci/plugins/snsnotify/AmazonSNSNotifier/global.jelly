@@ -25,6 +25,14 @@
             <f:textbox name="snsnotify.defaultTopicArn" />
         </f:entry>
 
+        <f:entry 
+            title="Default message (default: {BUILD_URL})" 
+            help="/plugin/snsnotify/help-defaultMessageTemplate.html"
+            field="defaultMessageTemplate">
+
+            <f:textbox name="snsnotify.defaultMessageTemplate" />
+        </f:entry>
+
         <f:entry
             title="Send notification also on start of build?"
             help="/plugin/snsnotify/help-defaultSendNotificationOnStart.html"

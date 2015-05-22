@@ -1,0 +1,13 @@
+<div>
+  <p>Specifies the message (payload) as published to the SNS topic. This can
+     be set (or overridden) in individual job configurations.
+     Build variables can be used and are resolved before message is sent.
+    <br>Additional variables include:
+    <ul>
+        <li>$BUILD_PHASE ("STARTED", "COMPLETED", etc)</li>
+        <li>$BUILD_ARTIFACT_PATHS (new-line separated list of artifact paths)</li>
+        <li>$BUILD_RESULT ("STARTED", "SUCESS", "FAILED", etc)</li>
+        <li>$BUILD_DURATION (number of milli-seconds it took to run this build)</li>
+    </ul>
+  </p>
+</div>

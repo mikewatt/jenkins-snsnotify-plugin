@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.snsnotify;
 
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.PublishRequest;
@@ -81,8 +83,12 @@ public class AmazonSNSNotifier extends Notifier {
     }
 
     public void onCompleted(AbstractBuild build, TaskListener listener) {
-        LOG.info("Prepare SNS notification for build completed...");
-        send(build, listener, BuildPhase.COMPLETED);
+        boolean notifyOnConsecutiveSuccesses = getDescriptor().isDefaultNotifyOnConsecutiveSuccesses();
+        boolean previousBuildSuccessful = isPreviousBuildSuccess(build);
+        if (notifyOnConsecutiveSuccesses || (!notifyOnConsecutiveSuccesses && !previousBuildSuccessful)) {
+            LOG.info("Prepare SNS notification for build completed...");
+            send(build, listener, BuildPhase.COMPLETED);
+        }
     }
 
     public BuildStepMonitor getRequiredMonitorService() {
@@ -102,13 +108,14 @@ public class AmazonSNSNotifier extends Notifier {
         String awsSecretKey = getDescriptor().getAwsSecretKey();
         String publishTopic = isEmpty(projectTopicArn) ?
                 getDescriptor().getDefaultTopicArn() : projectTopicArn;
+        boolean useLocalCredential = getDescriptor().isDefaultLocalCredential();
 
         if (isEmpty(publishTopic)) {
             listener.error("No global or project topic ARN sent; cannot send SNS notification");
             return;
         }
 
-        if (isEmpty(awsAccessKey) || isEmpty(awsSecretKey)) {
+        if (!(useLocalCredential) && (isEmpty(awsAccessKey) || isEmpty(awsSecretKey))) {
             listener.error("AWS credentials not configured; cannot send SNS notification");
             return;
         }
@@ -135,8 +142,21 @@ public class AmazonSNSNotifier extends Notifier {
                 isEmpty(messageTemplate) ? getDescriptor().getDefaultMessageTemplate() : messageTemplate);
 
         LOG.info("Setup SNS client '" + snsApiEndpoint + "' ...");
-        AmazonSNSClient snsClient = new AmazonSNSClient(
-                new BasicAWSCredentials(awsAccessKey, awsSecretKey));
+        AWSCredentials awsCredentials;
+        try {
+            if (useLocalCredential) {
+                awsCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
+            }
+            else {
+                awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+            }
+        }
+        catch (Exception e) {
+            listener.error("Failed to send SNS notification: " + e.getMessage());
+            return;
+        }
+
+        AmazonSNSClient snsClient = new AmazonSNSClient(awsCredentials);
         snsClient.setEndpoint(snsApiEndpoint);
 
         try {
@@ -150,6 +170,34 @@ public class AmazonSNSNotifier extends Notifier {
         } finally {
             snsClient.shutdown();
         }
+    }
+
+    /**
+     * Checks to see if the current build result was SUCCESS and the previous build's result
+     * was SUCCESS. If this is true then the build state has not changed in a way that should
+     * trigger a notification.
+     */
+    private boolean isPreviousBuildSuccess(AbstractBuild build) {
+        if (build.getResult() == Result.SUCCESS && findPreviousBuildResult(build) == Result.SUCCESS) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * To correctly compute the state change from the previous build to this build,
+     * we need to ignore aborted builds, and since we are consulting the earlier
+     * result, if the previous build is still running, behave as if this were the
+     * first build.
+     */
+     private Result findPreviousBuildResult(AbstractBuild b) {
+        do {
+            b = b.getPreviousBuild();
+            if (b == null || b.isBuilding()) {
+                return null;
+            }
+        } while((b.getResult() == Result.ABORTED) || (b.getResult() == Result.NOT_BUILT));
+        return b.getResult();
     }
 
     private String truncate(String s, int toLength) {
@@ -222,6 +270,8 @@ public class AmazonSNSNotifier extends Notifier {
         private String defaultTopicArn;
         private String defaultMessageTemplate;
         private boolean defaultSendNotificationOnStart;
+        private boolean defaultLocalCredential = false;
+        private boolean defaultNotifyOnConsecutiveSuccesses = true;
 
         public DescriptorImpl() {
             super(AmazonSNSNotifier.class);
@@ -245,7 +295,8 @@ public class AmazonSNSNotifier extends Notifier {
             defaultTopicArn = formData.getString("defaultTopicArn");
             defaultMessageTemplate = formData.getString("defaultMessageTemplate");
             defaultSendNotificationOnStart = formData.getBoolean("defaultSendNotificationOnStart");
-
+            defaultLocalCredential = formData.getBoolean("defaultLocalCredential");
+            defaultNotifyOnConsecutiveSuccesses = formData.getBoolean("defaultNotifyOnConsecutiveSuccesses");
             save();
             return super.configure(req, formData);
         }
@@ -266,8 +317,16 @@ public class AmazonSNSNotifier extends Notifier {
             return StringUtils.isEmpty(defaultMessageTemplate) ? "${BUILD_URL}" : defaultMessageTemplate;
         }
 
+        public boolean isDefaultLocalCredential() {
+            return defaultLocalCredential;
+        }
+
         public boolean isDefaultSendNotificationOnStart() {
             return defaultSendNotificationOnStart;
+        }
+
+        public boolean isDefaultNotifyOnConsecutiveSuccesses() {
+            return defaultNotifyOnConsecutiveSuccesses;
         }
 
         public void setAwsAccessKey(String awsAccessKey) {
@@ -286,8 +345,16 @@ public class AmazonSNSNotifier extends Notifier {
             this.defaultMessageTemplate = defaultMessageTemplate;
         }
 
+        public void setDefaultLocalCredential(boolean defaultLocalCredential) {
+            this.defaultLocalCredential = defaultLocalCredential;
+        }
+
         public void setDefaultSendNotificationOnStart(boolean defaultSendNotificationOnStart) {
             this.defaultSendNotificationOnStart = defaultSendNotificationOnStart;
+        }
+
+        public void setDefaultNotifyOnConsecutiveSuccesses(boolean defaultSendNotificationsOnConsecutiveSuccesses) {
+            this.defaultNotifyOnConsecutiveSuccesses = defaultSendNotificationsOnConsecutiveSuccesses;
         }
 
     }

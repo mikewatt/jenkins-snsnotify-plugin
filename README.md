@@ -31,3 +31,22 @@ Finally, back to Jenkins...
    configured one).
    
 
+## helpfull aws snippets
+
+In case you work with more fain grained access controlls, this is an example policy for just publishing to a single topic
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AWSConfigSNSPolicy20150201",
+            "Action": [
+                "SNS:Publish"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws{{just copy the whole arn into this}}"
+        }
+    ]
+}
+```

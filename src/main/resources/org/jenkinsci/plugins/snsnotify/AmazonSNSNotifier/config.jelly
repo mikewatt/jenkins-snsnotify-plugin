@@ -4,4 +4,12 @@
     <f:textbox />
   </f:entry>
 
+  <f:entry title="Subject (default: Build {BUILD_RESULT} {BUILD_FULLDISPLAYNAME})" field="subjectTemplate">
+    <f:textbox />
+  </f:entry>
+
+  <f:entry title="Message (overrides global default)" field="messageTemplate">
+    <f:textbox />
+  </f:entry>
+
 </j:jelly>

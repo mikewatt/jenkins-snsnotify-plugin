@@ -18,6 +18,14 @@
         </f:entry>
 
         <f:entry 
+            title="Use Local Credentials" 
+            help="/plugin/snsnotify/help-defaultCredential.html"
+            field="defaultLocalCredential">
+
+            <f:booleanRadio name="snsnotify.defaultLocalCredential" />
+        </f:entry>
+
+        <f:entry 
             title="Default notification topic ARN" 
             help="/plugin/snsnotify/help-defaultTopicArn.html"
             field="defaultTopicArn">
@@ -25,5 +33,28 @@
             <f:textbox name="snsnotify.defaultTopicArn" />
         </f:entry>
 
+        <f:entry 
+            title="Default message (default: {BUILD_URL})" 
+            help="/plugin/snsnotify/help-defaultMessageTemplate.html"
+            field="defaultMessageTemplate">
+
+            <f:textbox name="snsnotify.defaultMessageTemplate" />
+        </f:entry>
+
+        <f:entry
+            title="Send notification also on start of build?"
+            help="/plugin/snsnotify/help-defaultSendNotificationOnStart.html"
+            field="defaultSendNotificationOnStart">
+
+            <f:booleanRadio name="snsnotify.defaultSendNotificationOnStart" />
+        </f:entry>
+
+        <f:entry 
+            title="Send notifications on every build?"
+            help="/plugin/snsnotify/help-defaultNotifyOnConsecutiveSuccesses.html"
+            field="defaultNotifyOnConsecutiveSuccesses">
+
+            <f:booleanRadio name="snsnotify.defaultNotifyOnConsecutiveSuccesses" />
+        </f:entry>
     </f:section>
 </j:jelly>

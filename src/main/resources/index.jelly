@@ -1,3 +1,4 @@
+<?jelly escape-by-default='true'?>
 <div>
   Send build notifications to an Amazon SNS Topic
 </div>

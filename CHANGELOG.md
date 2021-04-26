@@ -6,6 +6,7 @@ Changelog
 Release date: _Apr ??, 2021_
 
 * Fixed clear text persistence of AWS secret key
+* Fixed SNS API endpoint for China
 * Updated parent pom to 4.18
 * Set min Jenkins version to 2.263.1
 * Added dependency to plugin aws-java-sdk 1.11.995

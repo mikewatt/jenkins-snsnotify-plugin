@@ -1,3 +1,4 @@
+<?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:section title="Amazon SNS Notification">
 
@@ -6,7 +7,7 @@
             help="/plugin/snsnotify/help-awsAccessKey.html"
             field="awsAccessKey">
 
-            <f:textbox name="snsnotify.awsAccessKey" />
+            <f:textbox />
         </f:entry>
 
         <f:entry 
@@ -14,7 +15,7 @@
             help="/plugin/snsnotify/help-awsSecretKey.html"
             field="awsSecretKey">
 
-            <f:password name="snsnotify.awsSecretKey" />
+            <f:password />
         </f:entry>
 
         <f:entry 
@@ -22,7 +23,7 @@
             help="/plugin/snsnotify/help-defaultCredential.html"
             field="defaultLocalCredential">
 
-            <f:booleanRadio name="snsnotify.defaultLocalCredential" />
+            <f:booleanRadio />
         </f:entry>
 
         <f:entry 
@@ -30,7 +31,7 @@
             help="/plugin/snsnotify/help-defaultTopicArn.html"
             field="defaultTopicArn">
 
-            <f:textbox name="snsnotify.defaultTopicArn" />
+            <f:textbox />
         </f:entry>
 
         <f:entry 
@@ -38,7 +39,7 @@
             help="/plugin/snsnotify/help-defaultMessageTemplate.html"
             field="defaultMessageTemplate">
 
-            <f:textbox name="snsnotify.defaultMessageTemplate" />
+            <f:textbox />
         </f:entry>
 
         <f:entry
@@ -46,7 +47,7 @@
             help="/plugin/snsnotify/help-defaultSendNotificationOnStart.html"
             field="defaultSendNotificationOnStart">
 
-            <f:booleanRadio name="snsnotify.defaultSendNotificationOnStart" />
+            <f:booleanRadio />
         </f:entry>
 
         <f:entry 
@@ -54,7 +55,7 @@
             help="/plugin/snsnotify/help-defaultNotifyOnConsecutiveSuccesses.html"
             field="defaultNotifyOnConsecutiveSuccesses">
 
-            <f:booleanRadio name="snsnotify.defaultNotifyOnConsecutiveSuccesses" />
+            <f:booleanRadio />
         </f:entry>
     </f:section>
 </j:jelly>

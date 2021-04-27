@@ -1,8 +1,8 @@
 package org.jenkinsci.plugins.snsnotify;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.*;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.PublishRequest;
 import hudson.EnvVars;
@@ -16,6 +16,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
+import hudson.util.Secret;
 import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -105,7 +106,7 @@ public class AmazonSNSNotifier extends Notifier {
 
     private void send(AbstractBuild build, TaskListener listener, BuildPhase phase) {
         String awsAccessKey = getDescriptor().getAwsAccessKey();
-        String awsSecretKey = getDescriptor().getAwsSecretKey();
+        Secret awsSecretKey = getDescriptor().getAwsSecretKey();
         String publishTopic = isEmpty(projectTopicArn) ?
                 getDescriptor().getDefaultTopicArn() : projectTopicArn;
         boolean useLocalCredential = getDescriptor().isDefaultLocalCredential();
@@ -115,13 +116,13 @@ public class AmazonSNSNotifier extends Notifier {
             return;
         }
 
-        if (!(useLocalCredential) && (isEmpty(awsAccessKey) || isEmpty(awsSecretKey))) {
+        if (!(useLocalCredential) && (isEmpty(awsAccessKey) || isEmpty(awsSecretKey.getPlainText()))) {
             listener.error("AWS credentials not configured; cannot send SNS notification");
             return;
         }
 
-        String snsApiEndpoint = getSNSApiEndpoint(publishTopic);
-        if (isEmpty(snsApiEndpoint)) {
+        AwsClientBuilder.EndpointConfiguration snsApiEndpoint = getSNSApiEndpoint(publishTopic);
+        if (snsApiEndpoint == null) {
             listener.error("Could not determine SNS API Endpoint from topic ARN: " + publishTopic);
             return;
         }
@@ -129,9 +130,10 @@ public class AmazonSNSNotifier extends Notifier {
         // ~~ prepare subject (incl. variable replacement)
         String subject;
         if (StringUtils.isEmpty(subjectTemplate)) {
+            Result buildResult = build.getResult();
             subject = truncate(
                     String.format("Build %s: %s",
-                            phase == BuildPhase.STARTED ? "STARTED" : build.getResult().toString(),
+                            phase == BuildPhase.STARTED || buildResult == null? "STARTED" : buildResult.toString(),
                             build.getFullDisplayName()), 100);
         } else {
             subject = replaceVariables(build, listener, phase, subjectTemplate);
@@ -142,13 +144,13 @@ public class AmazonSNSNotifier extends Notifier {
                 isEmpty(messageTemplate) ? getDescriptor().getDefaultMessageTemplate() : messageTemplate);
 
         LOG.info("Setup SNS client '" + snsApiEndpoint + "' ...");
-        AWSCredentials awsCredentials;
+        AWSCredentialsProvider awsCredentialsProvider;
         try {
             if (useLocalCredential) {
-                awsCredentials = new DefaultAWSCredentialsProviderChain().getCredentials();
+                awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
             }
             else {
-                awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+                awsCredentialsProvider = new AWSStaticCredentialsProvider(new BasicAWSCredentials(awsAccessKey, awsSecretKey.getPlainText()));
             }
         }
         catch (Exception e) {
@@ -156,8 +158,10 @@ public class AmazonSNSNotifier extends Notifier {
             return;
         }
 
-        AmazonSNSClient snsClient = new AmazonSNSClient(awsCredentials);
-        snsClient.setEndpoint(snsApiEndpoint);
+        AmazonSNS snsClient = AmazonSNSClient.builder()
+                .withEndpointConfiguration(snsApiEndpoint)
+                .withCredentials(awsCredentialsProvider)
+                .build();
 
         try {
             String summary = String.format("subject=%s topic=%s", subject, publishTopic);
@@ -216,18 +220,27 @@ public class AmazonSNSNotifier extends Notifier {
      */
     private String replaceVariables(AbstractBuild build, TaskListener listener,
                                     BuildPhase phase, String tmpl) {
+        String resultString = tmpl;
+
         try {
             EnvVars envVars = build.getEnvironment(listener);
+            Result buildResult = build.getResult();
+
             envVars.put("BUILD_PHASE", phase.name());
             envVars.put("BUILD_ARTIFACT_PATHS", artifactPaths(build.getArtifacts()));
-            envVars.put("BUILD_RESULT", phase == BuildPhase.STARTED ? "STARTED" : build.getResult().toString());
+            envVars.put("BUILD_RESULT", phase == BuildPhase.STARTED || buildResult == null ? "STARTED" : buildResult.toString());
             envVars.put("BUILD_DURATION", Long.toString(build.getDuration()));
             String result = Util.replaceMacro(tmpl, build.getBuildVariableResolver());
-            return Util.replaceMacro(result, envVars);
-        } catch (Exception e) {
-            LOG.warning("Unable to get environment while trying to replace variables on " + tmpl);
-            return tmpl;
+            resultString = Util.replaceMacro(result, envVars);
         }
+        catch (RuntimeException e) {
+            LOG.warning("Unable to get environment while trying to replace variables on " + tmpl);
+        }
+        catch (Exception e) {
+            LOG.warning("Unable to get environment while trying to replace variables on " + tmpl);
+        }
+
+        return resultString;
     }
 
     /**
@@ -244,7 +257,7 @@ public class AmazonSNSNotifier extends Notifier {
      * Determine the SNS API endpoint to make API calls to, based on the region
      * included in the topic ARN.
      */
-    private String getSNSApiEndpoint(String topicArn) {
+    private AwsClientBuilder.EndpointConfiguration getSNSApiEndpoint(String topicArn) {
 
         // This is probably not a recommended way to pick the API endpoint, but
         // it seems to be a reasonably safe assumption, and avoids extra
@@ -256,7 +269,17 @@ public class AmazonSNSNotifier extends Notifier {
         }
 
         String region = arnParts[3];
-        return "sns." + region + ".amazonaws.com";
+
+        String apiEndpoint = "";
+        if (region.startsWith("cn-")){
+            apiEndpoint = "sns." + region + ".amazonaws.com.cn";
+        } else {
+            apiEndpoint = "sns." + region + ".amazonaws.com";
+        }
+
+        AwsClientBuilder.EndpointConfiguration conf = new AwsClientBuilder.EndpointConfiguration (apiEndpoint, region);
+
+        return conf;
     }
 
 
@@ -266,7 +289,7 @@ public class AmazonSNSNotifier extends Notifier {
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
 
         private String awsAccessKey;
-        private String awsSecretKey;
+        private Secret awsSecretKey;
         private String defaultTopicArn;
         private String defaultMessageTemplate;
         private boolean defaultSendNotificationOnStart;
@@ -290,22 +313,16 @@ public class AmazonSNSNotifier extends Notifier {
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-            awsAccessKey = formData.getString("awsAccessKey");
-            awsSecretKey = formData.getString("awsSecretKey");
-            defaultTopicArn = formData.getString("defaultTopicArn");
-            defaultMessageTemplate = formData.getString("defaultMessageTemplate");
-            defaultSendNotificationOnStart = formData.getBoolean("defaultSendNotificationOnStart");
-            defaultLocalCredential = formData.getBoolean("defaultLocalCredential");
-            defaultNotifyOnConsecutiveSuccesses = formData.getBoolean("defaultNotifyOnConsecutiveSuccesses");
+            req.bindJSON(this, formData);
             save();
-            return super.configure(req, formData);
+            return true;
         }
 
         public String getAwsAccessKey() {
             return awsAccessKey;
         }
 
-        public String getAwsSecretKey() {
+        public Secret getAwsSecretKey() {
             return awsSecretKey;
         }
 
@@ -333,7 +350,7 @@ public class AmazonSNSNotifier extends Notifier {
             this.awsAccessKey = awsAccessKey;
         }
 
-        public void setAwsSecretKey(String awsSecretKey) {
+        public void setAwsSecretKey(Secret awsSecretKey) {
             this.awsSecretKey = awsSecretKey;
         }
 
